@@ -3,10 +3,18 @@ import random
 import string
 import time
 import os
+import json
 
+# Load the user config from the file config.json
+with open('config.json', 'r') as jsonFile:
+    conf = json.load(jsonFile)
+user_id = conf['user_id']
+# Leave the path blank in the conf file if you want the output to be in the same folder as the script
+output_path = conf['output_path'] + "alive_codes.txt"
+# Amount of wait time between attempts
+sleep_time = float(conf['sleep'])
 
 url = "https://n-production-serial-code.sekai-en.com/api/serial-code"
-user_id = "413727xxxxxxxxxxxx"  # replace with your actual user ID if needed
 
 headers = {
     "Host": "n-production-serial-code.sekai-en.com",
@@ -27,12 +35,10 @@ headers = {
     "Priority": "u=1, i"
 }
 
+
 def generate_serial_code(length=17):
     characters = string.ascii_uppercase + string.digits
     return ''.join(random.choices(characters, k=length))
-
-# Set output file path
-output_path = "/storage/emulated/0/Download/alive_codes.txt"
 
 
 dead_count = 0
@@ -40,34 +46,40 @@ alive_count = 0
 used_count = 0
 
 # Make sure Download directory exists (it always should, but just in case)
-if not os.path.exists("/storage/emulated/0/Download/"):
-    os.makedirs("/storage/emulated/0/Download/")
+if conf['output_path']:
+    if not os.path.exists(conf['output_path']):
+        os.makedirs(conf['output_path'])
 
 while True:
-    serial_code = generate_serial_code()
-    payload = {
-        "userId": user_id,
-        "serialCode": serial_code
-    }
-    try:
-        response = requests.post(url, headers=headers, json=payload)
-        status = response.status_code
+    if user_id == "Enter your ID here":
+        print("Remember to change the user ID in the config.json file!!!")
+        break
+    else:
+        serial_code = generate_serial_code()
+        payload = {
+            "userId": user_id,
+            "serialCode": serial_code
+        }
+        try:
+            response = requests.post(url, headers=headers, json=payload)
+            status = response.status_code
 
-        if status == 200:
-            alive_count += 1
-            
-            with open(output_path, "a") as f:
-                f.write(f"{serial_code}\n")
+            if status == 200:
+                alive_count += 1
 
-        elif status == 400:
-            dead_count += 1
+                with open(output_path, "a") as f:
+                    f.write(f"{serial_code}\n")
 
-        elif status == 409:
-            used_count += 1
+            elif status == 400:
+                dead_count += 1
 
-        print(f"Sent serialCode: {serial_code} | Status: {status} | Success: {alive_count} | Failed: {dead_count} | Failed (used already): {used_count} | Response: {response.text}")
+            elif status == 409:
+                used_count += 1
 
-    except Exception as e:
-        print(f"Error sending request: {e}")
+            print(
+                f"Sent serialCode: {serial_code} | Status: {status} | Success: {alive_count} | Failed: {dead_count} | Failed (used already): {used_count} | Response: {response.text}")
 
-    time.sleep(1)  
+        except Exception as e:
+            print(f"Error sending request: {e}")
+
+        time.sleep(sleep_time)
